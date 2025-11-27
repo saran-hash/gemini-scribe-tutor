@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "vite_react_shadcn_ts": "file:.."
+  }
+}

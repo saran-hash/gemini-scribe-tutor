@@ -1,0 +1,8 @@
+Flask==3.0.3
+Flask-Cors==4.0.1
+python-dotenv==1.0.1
+chromadb==0.4.2
+sentence-transformers==3.0.1
+pypdf==3.17.4
+youtube-transcript-api==0.6.2
+tqdm==4.66.5
