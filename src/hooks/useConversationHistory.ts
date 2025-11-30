@@ -16,9 +16,11 @@ export interface Conversation {
 }
 
 const STORAGE_KEY = 'tutor_conversations';
+const CURRENT_KEY = 'tutor_current_conversation';
 
 export const useConversationHistory = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -35,6 +37,11 @@ export const useConversationHistory = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const cur = localStorage.getItem(CURRENT_KEY);
+    if (cur) setCurrentConversationId(cur);
+  }, []);
+
   const saveConversations = (convs: Conversation[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
     setConversations(convs);
@@ -47,7 +54,11 @@ export const useConversationHistory = () => {
       messages: [],
       createdAt: new Date(),
     };
-    saveConversations([newConv, ...conversations]);
+    const updated = [newConv, ...conversations];
+    saveConversations(updated);
+    // set as current
+    localStorage.setItem(CURRENT_KEY, newConv.id);
+    setCurrentConversationId(newConv.id);
     return newConv.id;
   };
 
@@ -71,6 +82,29 @@ export const useConversationHistory = () => {
     saveConversations(updated);
   };
 
+  const addMessageToCurrent = (message: Omit<Message, 'id' | 'timestamp'>) => {
+    if (!currentConversationId) {
+      const convId = addConversation('Conversation ' + new Date().toLocaleString());
+      addMessage(convId, message);
+      return convId;
+    }
+    addMessage(currentConversationId, message);
+    return currentConversationId;
+  };
+
+  const setCurrentConversation = (id: string | null) => {
+    if (id) {
+      localStorage.setItem(CURRENT_KEY, id);
+    } else {
+      localStorage.removeItem(CURRENT_KEY);
+    }
+    setCurrentConversationId(id);
+  };
+
+  const getCurrentConversation = (): Conversation | undefined => {
+    return conversations.find((c) => c.id === currentConversationId);
+  };
+
   const deleteConversation = (id: string) => {
     saveConversations(conversations.filter((c) => c.id !== id));
   };
@@ -80,5 +114,9 @@ export const useConversationHistory = () => {
     addConversation,
     addMessage,
     deleteConversation,
+    currentConversationId,
+    setCurrentConversation,
+    getCurrentConversation,
+    addMessageToCurrent,
   };
 };

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, MicOff, Send, Volume2, VolumeX, Loader2, BookOpen } from 'lucide-react';
+import { Mic, MicOff, Send, Volume2, VolumeX, Loader2, BookOpen, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { askQuestion, type Citation } from '@/lib/api';
+import { askQuestion, deleteMaterial, type Citation } from '@/lib/api';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useConversationHistory } from '@/hooks/useConversationHistory';
@@ -24,7 +24,45 @@ export default function Ask() {
 
   const { isListening, transcript, isSupported: voiceSupported, startListening, stopListening, resetTranscript } = useVoiceInput();
   const { speak, stop, isSpeaking, isSupported: ttsSupported } = useTextToSpeech();
-  const { addConversation, addMessage } = useConversationHistory();
+  const { conversations, setCurrentConversation, addConversation, addMessage, getCurrentConversation, addMessageToCurrent, currentConversationId, deleteConversation } = useConversationHistory();
+
+  // allow user to select multiple conversations/materials to use for answers
+  const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([]);
+  const handleSelectConversation = (ev: React.ChangeEvent<HTMLSelectElement>) => {
+    const opts = Array.from(ev.target.selectedOptions).map((o) => o.value);
+    setSelectedConversationIds(opts);
+    // set primary/current conversation to the first selected for message persistence
+    setCurrentConversation(opts.length > 0 ? opts[0] : null);
+  };
+
+  const handleDeleteCurrent = async () => {
+    if (!currentConversationId) return;
+    const confirm = window.confirm('Delete this material and its conversation? This cannot be undone.');
+    if (!confirm) return;
+    try {
+      await deleteMaterial(currentConversationId);
+    } catch (err: any) {
+      // still attempt to remove locally even if backend fails
+      toast.error(err?.message || 'Failed to delete material on server');
+    }
+    // remove locally
+    deleteConversation(currentConversationId);
+    setCurrentConversation(null);
+    setSelectedConversationIds([]);
+    toast.success('Material deleted');
+  };
+
+  // sync local messages with current conversation stored in hook/localStorage
+  useEffect(() => {
+    const cur = getCurrentConversation();
+    if (cur) setMessages(cur.messages as Message[]);
+    else setMessages([]);
+  }, [currentConversationId]);
+
+  // initialize selectedConversationIds from currentConversationId when available
+  useEffect(() => {
+    if (currentConversationId) setSelectedConversationIds([currentConversationId]);
+  }, [currentConversationId]);
 
   const handleVoiceToggle = () => {
     if (isListening) {
@@ -49,25 +87,23 @@ export default function Ask() {
 
     setIsAsking(true);
     const userMessage: Message = { role: 'user', content: q };
+    // persist user message to current conversation
+    const convId = addMessageToCurrent(userMessage);
+    // update local state optimistically
     setMessages((prev) => [...prev, userMessage]);
     setQuestion('');
     resetTranscript();
 
     try {
-      const response = await askQuestion(q);
+      const response = await askQuestion(q, selectedConversationIds.length > 0 ? selectedConversationIds : undefined);
       const assistantMessage: Message = {
         role: 'assistant',
         content: response.answer,
         citations: response.citations,
       };
+      // persist assistant message
+      addMessageToCurrent(assistantMessage);
       setMessages((prev) => [...prev, assistantMessage]);
-
-      // Save to history
-      if (messages.length === 0) {
-        const convId = addConversation(q.slice(0, 50) + '...');
-        addMessage(convId, userMessage);
-        addMessage(convId, assistantMessage);
-      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to get answer');
       setMessages((prev) => [
@@ -89,6 +125,22 @@ export default function Ask() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-end">
+        <label className="mr-2 text-sm text-muted-foreground">Active Material:</label>
+        <div className="flex items-center gap-2">
+          <select value={currentConversationId || ''} onChange={handleSelectConversation} className="border rounded p-1">
+            <option value="">(global)</option>
+            {conversations.map((c) => (
+              <option value={c.id} key={c.id}>{c.title}</option>
+            ))}
+          </select>
+          {currentConversationId && (
+            <Button variant="ghost" size="icon" onClick={handleDeleteCurrent} title="Delete material">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
+        </div>
+      </div>
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Ask Your Tutor</h1>
         <p className="text-muted-foreground">Ask questions about your uploaded materials</p>

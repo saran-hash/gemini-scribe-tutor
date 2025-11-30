@@ -1,12 +1,18 @@
 # requirements.txt for gemini-scribe-tutor
-# Minimal Python dependencies for the example FastAPI app in `python/example_app.py`.
-# Pin versions to ensure reproducible installs — adjust as needed.
-fastapi==0.95.2
-uvicorn[standard]==0.21.1
+# Backend Flask + RAG dependencies (used by backend/app.py)
+flask==3.0.0
+flask-cors==4.0.0
 python-dotenv==1.0.0
 requests==2.31.0
 
-# If you need OpenAI or Supabase Python clients, add them below with pinned
-# versions, for example:
-# openai==0.27.0
-# supabase==1.0.0
+# RAG stack
+chromadb==0.4.24
+sentence-transformers==2.6.1
+pypdf==4.1.0
+youtube-transcript-api==0.6.2
+yt-dlp==2025.02.19
+tqdm==4.66.4
+
+# Optional FastAPI example (commented out)
+# fastapi==0.95.2
+# uvicorn[standard]==0.21.1

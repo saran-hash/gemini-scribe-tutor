@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, Link as LinkIcon, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { ingestMaterials, type IngestItem } from '@/lib/api';
+import { useConversationHistory } from '@/hooks/useConversationHistory';
 
 export default function Materials() {
   const [files, setFiles] = useState<File[]>([]);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const { addConversation } = useConversationHistory();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -38,6 +40,9 @@ export default function Materials() {
 
     setIsProcessing(true);
     try {
+      // create a conversation before ingest so backend can tag chunks with it
+      const title = 'Materials: ' + (files.length > 0 ? files.map((f) => f.name).join(', ') : youtubeUrl);
+      const convId = addConversation(title);
       const items: IngestItem[] = [];
 
       for (const file of files) {
@@ -66,8 +71,9 @@ export default function Materials() {
         });
       }
 
-      await ingestMaterials({ items });
+      await ingestMaterials({ items, conversationId: convId });
       toast.success('Materials processed successfully!');
+      // conversation already created and set as current by addConversation
       setFiles([]);
       setYoutubeUrl('');
     } catch (error: any) {

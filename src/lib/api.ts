@@ -13,6 +13,7 @@ export interface IngestItem {
 
 export interface IngestRequest {
   items: IngestItem[];
+  conversationId?: string;
 }
 
 export interface Citation {
@@ -41,13 +42,15 @@ export const ingestMaterials = async (request: IngestRequest): Promise<void> => 
   }
 };
 
-export const askQuestion = async (question: string): Promise<AskResponse> => {
+export const askQuestion = async (question: string, conversationIds?: string[]): Promise<AskResponse> => {
+  const body: any = { question };
+  if (conversationIds && conversationIds.length > 0) body.conversationIds = conversationIds;
   const response = await fetch(`${getBackendUrl()}/api/ask`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -56,4 +59,15 @@ export const askQuestion = async (question: string): Promise<AskResponse> => {
   }
 
   return response.json();
+};
+
+export const deleteMaterial = async (conversationId: string): Promise<void> => {
+  const response = await fetch(`${getBackendUrl()}/api/materials/${conversationId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error || 'Failed to delete material');
+  }
 };

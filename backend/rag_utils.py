@@ -7,6 +7,7 @@ from urllib.parse import urlparse, parse_qs
 import base64
 import io
 from typing import List, Dict, Tuple
+import uuid
 from dataclasses import dataclass
 from tqdm import tqdm
 
@@ -248,27 +249,72 @@ def build_chunks(text: str, title: str, source_type: str, source_id: str) -> Lis
     return out
 
 
-def add_chunks_to_chroma(collection, embedder, chunks: List[Chunk]):
+def add_chunks_to_chroma(collection, embedder, chunks: List[Chunk], conversation_id: str | None = None):
+    """Add chunks to Chroma with unique IDs so the same file can be re-ingested multiple times.
+
+    We generate an ingestion run UUID and prefix all IDs with it to avoid 'existing embedding ID' collisions
+    when the same filename/source_id is uploaded multiple times.
+    """
+    ingestion_run = uuid.uuid4().hex[:12]
     docs = [c.content for c in chunks]
-    ids  = [f"{c.source_type}:{c.source_id}:{c.idx}" for c in chunks]
-    metas = [{"title": c.title, "source_type": c.source_type, "source_id": c.source_id, "idx": c.idx} for c in chunks]
+    ids  = [f"{ingestion_run}:{c.source_type}:{c.source_id}:{c.idx}" for c in chunks]
+    metas = []
+    for c in chunks:
+        m = {"title": c.title, "source_type": c.source_type, "source_id": c.source_id, "idx": c.idx, "ingestion_run": ingestion_run}
+        if conversation_id:
+            m["conversation_id"] = conversation_id
+        metas.append(m)
     embs = embedder.encode(docs, convert_to_numpy=True, normalize_embeddings=True).tolist()
     collection.add(documents=docs, embeddings=embs, metadatas=metas, ids=ids)
     return len(docs)
 
 
-def query_chroma(collection, embedder, question: str, top_k: int = 6):
+def query_chroma(collection, embedder, question: str, top_k: int = 6, conversation_id: str | list | None = None):
     q_emb = embedder.encode([question], convert_to_numpy=True, normalize_embeddings=True).tolist()
-    res = collection.query(query_embeddings=q_emb, n_results=top_k)
-    # res keys: 'ids', 'documents', 'metadatas', 'distances'
+
+    def _res_to_hits(res):
+        out = []
+        # handle empty results
+        if not res or "ids" not in res or not res["ids"]:
+            return out
+        for i in range(len(res["ids"][0])):
+            out.append({
+                "id": res["ids"][0][i],
+                "content": res["documents"][0][i],
+                "metadata": res["metadatas"][0][i],
+                "distance": res["distances"][0][i],
+            })
+        return out
+
     hits = []
-    for i in range(len(res["ids"][0])):
-        hits.append({
-            "id": res["ids"][0][i],
-            "content": res["documents"][0][i],
-            "metadata": res["metadatas"][0][i],
-            "distance": res["distances"][0][i],
-        })
+    # If conversation_id is a list, query each conversation and merge results
+    if isinstance(conversation_id, (list, tuple)) and len(conversation_id) > 0:
+        seen = {}
+        for cid in conversation_id:
+            try:
+                res = collection.query(query_embeddings=q_emb, n_results=top_k, where={"conversation_id": cid})
+            except Exception:
+                # If collection.query fails for a particular where clause, skip it
+                continue
+            for h in _res_to_hits(res):
+                # dedupe by id keeping smallest distance
+                existing = seen.get(h["id"])
+                if existing is None or h["distance"] < existing["distance"]:
+                    seen[h["id"]] = h
+        # Convert to list and sort by distance
+        hits = sorted(list(seen.values()), key=lambda x: x.get("distance", 0))[:top_k]
+        return hits
+
+    # Single conversation_id or global
+    if conversation_id:
+        try:
+            res = collection.query(query_embeddings=q_emb, n_results=top_k, where={"conversation_id": conversation_id})
+        except Exception:
+            res = collection.query(query_embeddings=q_emb, n_results=top_k)
+    else:
+        res = collection.query(query_embeddings=q_emb, n_results=top_k)
+
+    hits = _res_to_hits(res)
     return hits
 
 
