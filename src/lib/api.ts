@@ -1,6 +1,6 @@
 // API client for Flask backend
 const getBackendUrl = () => {
-  return localStorage.getItem('backend_url') || 'http://54.208.29.125:5000';
+  return localStorage.getItem('backend_url') || 'http://34.192.78.22:5000';
 };
 
 export interface IngestItem {
