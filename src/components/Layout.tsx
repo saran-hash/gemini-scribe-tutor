@@ -19,7 +19,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-primary" />
-              <h1 className="text-xl font-bold text-foreground">AI Tutor</h1>
+              <h1 className="text-xl font-bold text-foreground">NoteMind AI</h1>
             </div>
             <nav className="flex gap-1">
               {navItems.map((item) => {

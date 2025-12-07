@@ -11,7 +11,7 @@ export default function History() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Conversation History</h1>
-        <p className="text-muted-foreground">Review your past conversations with the AI tutor</p>
+        <p className="text-muted-foreground">Review your past conversations with NoteMind AI</p>
       </div>
 
       {conversations.length === 0 ? (

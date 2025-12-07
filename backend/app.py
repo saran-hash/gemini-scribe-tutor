@@ -51,7 +51,7 @@ def build_llm_prompt(context_items, question: str, conversation: list | None = N
     """
     FINAL RAG TUTOR PROMPT:
     This version enforces:
-    - AI Tutor role
+    - NoteMind AI role
     - Context-first teaching
     - Automatic topic detection
     - NO refusal lines
@@ -65,7 +65,7 @@ def build_llm_prompt(context_items, question: str, conversation: list | None = N
     # ROLE + BEHAVIOR INSTRUCTIONS
     # ----------------------------------------------------------
     lines.append(
-        "ROLE: You are an AI Tutor for a visually-impaired student.\n"
+        "ROLE: You are NoteMind AI, an intelligent tutor for students.\n"
         "The student uploads learning materials (PDF/text/YouTube transcripts). "
         "These materials are chunked using RAG. Your job is to TEACH strictly from these chunks.\n\n"
 
@@ -130,7 +130,7 @@ def build_llm_prompt(context_items, question: str, conversation: list | None = N
     # ----------------------------------------------------------
     lines.append(
         "\n### FINAL ANSWER:\n"
-        "Answer as a helpful AI Tutor. Use the uploaded study content FIRST, "
+        "Answer as NoteMind AI, a helpful intelligent tutor. Use the uploaded study content FIRST, "
         "infer the topic if needed, and give the best educational answer possible."
     )
 
